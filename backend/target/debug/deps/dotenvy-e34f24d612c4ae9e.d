@@ -1,0 +1,11 @@
+/Users/gurleendhaliwal/Desktop/Cosmos-Gallery/backend/target/debug/deps/dotenvy-e34f24d612c4ae9e.rmeta: /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/dotenvy-0.15.7/src/lib.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/dotenvy-0.15.7/src/errors.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/dotenvy-0.15.7/src/find.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/dotenvy-0.15.7/src/iter.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/dotenvy-0.15.7/src/parse.rs
+
+/Users/gurleendhaliwal/Desktop/Cosmos-Gallery/backend/target/debug/deps/libdotenvy-e34f24d612c4ae9e.rlib: /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/dotenvy-0.15.7/src/lib.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/dotenvy-0.15.7/src/errors.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/dotenvy-0.15.7/src/find.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/dotenvy-0.15.7/src/iter.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/dotenvy-0.15.7/src/parse.rs
+
+/Users/gurleendhaliwal/Desktop/Cosmos-Gallery/backend/target/debug/deps/dotenvy-e34f24d612c4ae9e.d: /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/dotenvy-0.15.7/src/lib.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/dotenvy-0.15.7/src/errors.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/dotenvy-0.15.7/src/find.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/dotenvy-0.15.7/src/iter.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/dotenvy-0.15.7/src/parse.rs
+
+/Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/dotenvy-0.15.7/src/lib.rs:
+/Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/dotenvy-0.15.7/src/errors.rs:
+/Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/dotenvy-0.15.7/src/find.rs:
+/Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/dotenvy-0.15.7/src/iter.rs:
+/Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/dotenvy-0.15.7/src/parse.rs:

@@ -1,0 +1,10 @@
+/Users/gurleendhaliwal/Desktop/Cosmos-Gallery/backend/target/debug/deps/pest_generator-f2ab5afcbab4c0e1.rmeta: /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/pest_generator-2.7.1/src/lib.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/pest_generator-2.7.1/src/macros.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/pest_generator-2.7.1/src/docs.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/pest_generator-2.7.1/src/generator.rs
+
+/Users/gurleendhaliwal/Desktop/Cosmos-Gallery/backend/target/debug/deps/libpest_generator-f2ab5afcbab4c0e1.rlib: /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/pest_generator-2.7.1/src/lib.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/pest_generator-2.7.1/src/macros.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/pest_generator-2.7.1/src/docs.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/pest_generator-2.7.1/src/generator.rs
+
+/Users/gurleendhaliwal/Desktop/Cosmos-Gallery/backend/target/debug/deps/pest_generator-f2ab5afcbab4c0e1.d: /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/pest_generator-2.7.1/src/lib.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/pest_generator-2.7.1/src/macros.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/pest_generator-2.7.1/src/docs.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/pest_generator-2.7.1/src/generator.rs
+
+/Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/pest_generator-2.7.1/src/lib.rs:
+/Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/pest_generator-2.7.1/src/macros.rs:
+/Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/pest_generator-2.7.1/src/docs.rs:
+/Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/pest_generator-2.7.1/src/generator.rs:
