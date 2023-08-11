@@ -20,6 +20,11 @@ use crate::models::question::{
 use crate::models::user::{Claims, OptionalClaims, User, UserSignup, KEYS};
 
 use crate::template::TEMPLATES;
+//use crate::models::Apod;
+use reqwest;
+use sqlx::PgPool;
+use anyhow::Result;
+
 
 #[allow(dead_code)]
 pub async fn root(
@@ -209,3 +214,15 @@ pub async fn protected(claims: Claims) -> Result<String, AppError> {
         claims
     ))
 }
+
+/*
+pub async fn fetch_and_store_apod(pool: &PgPool) -> Result<()> {
+    let api_key = "O96l3ECnx8bZGN4eGvpEd8cgexq7lP8qtTvt8Q7m";
+    let url = format!("https://api.nasa.gov/planetary/apod?api_key={}", api_key);
+
+    let response: Apod = reqwest::get(&url).await?.json().await?;
+
+    Apod::create(response, pool).await?;
+
+    Ok(())
+}*/
