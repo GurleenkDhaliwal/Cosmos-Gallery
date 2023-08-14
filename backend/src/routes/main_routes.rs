@@ -26,6 +26,8 @@ pub async fn app(pool: PgPool) -> Router {
         .route("/answer", post(handlers::create_answer))
         .route("/users", post(handlers::register))
         .route("/login", post(handlers::login))
+        .route("/register", post(handlers::register))
+	.route("/fetch_apod", get(handlers::fetch_and_store_apod))
         .route("/protected", get(handlers::protected))
         //.route("/apods", post(handlers::add_apod_handler))
         .route("/*_", get(handle_404))

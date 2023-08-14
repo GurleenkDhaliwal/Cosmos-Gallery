@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Heap Overrun</title>
+    <title>Cosmos Gallery</title>
 </head>
 <body>
 
@@ -16,14 +16,29 @@
 </ul>
 
 {% else %}
+<!--show signup form-->
+<h2>Sign Up</h2>
+
+<form action="/register" method="post">
+    <label for="signup-email">Email:</label>
+    <input type="text" id="signup-email" name="email">
+    <label for="signup-password">Password:</label>
+    <input type="password" id="signup-password" name="password">
+    <label for="confirm_password">Confirm Password:</label>
+    <input type="password" id="confirm_password" name="confirm_password">
+    <input type="submit" value="Sign Up">
+</form>
+
+<h3>Or</h3>
+
 <!--show login form-->
 <h2>Login</h2>
 
 <form action="/login" method="post">
-    <label for="email">Email:</label>
-    <input type="text" id="email" name="email">
-    <label for="password">Password:</label>
-    <input type="password" id="password" name="password">
+    <label for="login-email">Email:</label>
+    <input type="text" id="login-email" name="email">
+    <label for="login-password">Password:</label>
+    <input type="password" id="login-password" name="password">
     <input type="submit" value="Login">
 </form>
 
@@ -31,3 +46,4 @@
 
 </body>
 </html>
+

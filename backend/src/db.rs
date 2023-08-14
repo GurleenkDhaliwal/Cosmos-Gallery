@@ -3,19 +3,20 @@ use serde_json::Value;
 use std::sync::{Arc, Mutex, RwLock};
 
 use sqlx::postgres::PgPoolOptions;
-use sqlx::{PgPool, Row};
 use sqlx::Error;
+use sqlx::{PgPool, Row};
+use tracing::error;
 use tracing::info;
 
 use crate::error::AppError;
 use crate::models::answer::{Answer, AnswerId};
+use crate::models::apod::Apod;
 use crate::models::comment::{Comment, CommentId, CommentReference};
 use crate::models::page::{AnswerWithComments, PagePackage, QuestionWithComments};
 use crate::models::question::{
     GetQuestionById, IntoQuestionId, Question, QuestionId, UpdateQuestion,
 };
 use crate::models::user::{User, UserSignup};
-use crate::models::apod::Apod;
 use chrono::NaiveDate;
 
 #[derive(Clone)]
@@ -226,12 +227,17 @@ SELECT title, content, id, tags FROM questions WHERE id = $1
 
     pub async fn create_user(&self, user: UserSignup) -> Result<Json<Value>, AppError> {
         // TODO: Encrypt/bcrypt user passwords
-        let result = sqlx::query("INSERT INTO users(email, password) values ($1, $2)")
-            .bind(&user.email)
-            .bind(&user.password)
-            .execute(&self.conn_pool)
-            .await
-            .map_err(|_| AppError::InternalServerError)?;
+        let result = sqlx::query(
+            "INSERT INTO users(email, password, is_admin, is_banned) values ($1, $2, 'N', 'N')",
+        )
+        .bind(&user.email)
+        .bind(&user.password)
+        .execute(&self.conn_pool)
+        .await
+        .map_err(|e| {
+            error!("Database Error: {}", e); // Log the error for debugging
+            AppError::InternalServerError
+        })?;
 
         if result.rows_affected() < 1 {
             Err(AppError::InternalServerError)
@@ -241,6 +247,52 @@ SELECT title, content, id, tags FROM questions WHERE id = $1
             ))
         }
     }
+
+    pub async fn insert_apod(&self, apod: Apod) -> Result<(), AppError> {
+    sqlx::query!(
+        "INSERT INTO apods (date, title, explanation, url, media_type, upvotes, downvotes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        apod.date,
+        apod.title,
+        apod.explanation,
+        apod.url,
+        apod.media_type,
+        apod.upvotes.unwrap_or(0),  // default to 0 if None
+        apod.downvotes.unwrap_or(0) // default to 0 if None
+    	)
+        .execute(&self.conn_pool)
+        .await
+        .map_err(|e| {
+            error!("Database Error: {}", e);
+            AppError::InternalServerError
+        })?;
+
+        Ok(())
+    }
+
+    /*
+        pub async fn create_user(&self, user: UserSignup) -> Result<Json<Value>, AppError> {
+            // TODO: Encrypt/bcrypt user passwords
+            let result = sqlx::query("INSERT INTO users(email, password) values ($1, $2)")
+                .bind(&user.email)
+                .bind(&user.password)
+                .execute(&self.conn_pool)
+                .await
+            .map_err(|e| {
+                error!("Database Error: {}", e);  // Log the error for debugging
+                AppError::InternalServerError
+             })?;
+        //      .map_err(|_| AppError::InternalServerError)?;
+
+            if result.rows_affected() < 1 {
+                Err(AppError::InternalServerError)
+            } else {
+                Ok(Json(
+                    serde_json::json!({"message": "User created successfully!"}),
+                ))
+            }
+        }
+    */
 
     pub async fn create_comment(&self, comment: Comment) -> Result<Comment, AppError> {
         let (question_id, answer_id) = match &comment.reference {
@@ -382,6 +434,35 @@ SELECT title, content, id, tags FROM questions WHERE id = $1
         Ok(package)
     }
 
+    pub async fn fetch_apods(&self) -> Result<Vec<Apod>, AppError> {
+    let apods: Vec<Apod> = sqlx::query_as!(
+        Apod,
+	 "SELECT id, date, title, explanation, hdurl, media_type, service_version, url, COALESCE(upvotes, 0) as upvotes, COALESCE(downvotes, 0) as downvotes FROM apods"
+    )
+    .fetch_all(&self.conn_pool)
+    .await
+    .map_err(|e| {
+        error!("Database Error: {}", e);
+        AppError::InternalServerError
+    })?;
+
+    Ok(apods)
+}
+ 
+    pub async fn list_apods(&self) -> Result<Vec<Apod>, AppError> {
+    let apods = sqlx::query_as!(
+        Apod,
+        "SELECT * FROM apods ORDER BY date DESC"
+    )
+    .fetch_all(&self.conn_pool)
+    .await
+    .map_err(|e| {
+        error!("Database Error: {}", e);
+        AppError::InternalServerError
+    })?;
+
+    Ok(apods)
+}
 
 }
 

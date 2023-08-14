@@ -3,6 +3,7 @@ use axum::Json;
 use http::StatusCode;
 use serde_json::json;
 use sqlx::Error;
+use tracing::error;
 
 #[derive(Debug)]
 pub enum AppError {
@@ -62,5 +63,12 @@ impl IntoResponse for AppError {
 impl From<sqlx::Error> for AppError {
     fn from(value: Error) -> Self {
         AppError::Database(value)
+    }
+}
+
+impl From<reqwest::Error> for AppError {
+    fn from(err: reqwest::Error) -> AppError {
+        error!("Reqwest Error: {}", err);
+        AppError::InternalServerError
     }
 }

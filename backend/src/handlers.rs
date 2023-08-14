@@ -1,15 +1,17 @@
 use argon2::Config;
 use axum::extract::{Path, Query, State};
+use axum::response::IntoResponse;
 use axum::response::{Html, Response};
-use axum::{Form, Json, Extension};
+use axum::http::StatusCode;
+use axum::{Extension, Form, Json};
 use http::header::{LOCATION, SET_COOKIE};
-use http::{HeaderValue, StatusCode};
+use http::{HeaderValue};
 use hyper::Body;
 use jsonwebtoken::Header;
 use serde_json::{json, Value};
 use tera::Context;
 use tracing::error;
-use axum::response::IntoResponse;
+use tera::Template;
 
 use crate::db::Store;
 use crate::error::AppError;
@@ -20,12 +22,14 @@ use crate::models::question::{
 };
 use crate::models::user::{Claims, OptionalClaims, User, UserSignup, KEYS};
 
-use crate::template::TEMPLATES;
 use crate::models::apod::Apod;
+use crate::template::TEMPLATES;
+use anyhow::Result;
 use reqwest;
 use sqlx::PgPool;
-use anyhow::Result;
 
+const NASA_APOD_API: &str =
+    "https://api.nasa.gov/planetary/apod?api_key=O96l3ECnx8bZGN4eGvpEd8cgexq7lP8qtTvt8Q7m";
 
 #[allow(dead_code)]
 pub async fn root(
@@ -40,8 +44,9 @@ pub async fn root(
         context.insert("claims", &claims_data);
         context.insert("is_logged_in", &true);
         // Get all the page data
-        let page_packages = am_database.get_all_question_pages().await?;
-        context.insert("page_packages", &page_packages);
+     
+        let apod_packages = am_database.fetch_apods().await?;
+	context.insert("apod_packages", &apod_packages);
 
         "pages.html" // Use the new template when logged in
     } else {
@@ -117,7 +122,7 @@ pub async fn create_answer(
 
 pub async fn register(
     State(mut database): State<Store>,
-    Json(mut credentials): Json<UserSignup>,
+    Form(mut credentials): Form<UserSignup>,
 ) -> Result<Json<Value>, AppError> {
     // We should also check to validate other things at some point like email address being in right format
 
@@ -171,9 +176,13 @@ pub async fn login(
 
     // Check if the passwords match directly
     if existing_user.password != creds.password {
-        error!("Password Verification Failed for user with email {}", &creds.email);
+        error!(
+            "Password Verification Failed for user with email {}",
+            &creds.email
+        );
         return Err(AppError::InvalidPassword);
     }
+ 
 
     // at this point we've authenticated the user's identity
     // create JWT to return
@@ -195,7 +204,7 @@ pub async fn login(
 
     response
         .headers_mut()
-        .insert(LOCATION, HeaderValue::from_static("/"));
+        .insert(LOCATION, HeaderValue::from_static("/fetch_store_apod"));
     response.headers_mut().insert(
         SET_COOKIE,
         HeaderValue::from_str(&cookie.to_string()).unwrap(),
@@ -203,6 +212,26 @@ pub async fn login(
 
     Ok(response)
 }
+
+pub async fn fetch_and_store_apod(state: State<Store>) -> Result<Json<Value>, AppError> {
+    let response = reqwest::get(NASA_APOD_API).await?;
+    let apod: Apod = response.json().await?;
+
+    // Store this `apod` in our database using a new function in db.rs
+    state.0.insert_apod(apod).await?;
+
+    Ok(Json(json!({"message": "APOD fetched and stored successfully!"})))
+}
+
+pub async fn list_apods(database: &Store) -> impl IntoResponse {
+    match database.list_apods().await {
+    Ok(apods) => Ok(Json(apods)),
+    Err(_) => {
+    return Err(AppError::Any(anyhow::anyhow!("APOD's NOT Found")));
+     }
+    }
+}
+
 
 
 /*
@@ -220,7 +249,7 @@ pub async fn login(
         match argon2::verify_encoded(&*existing_user.password, creds.password.as_bytes()) {
             Ok(result) => result,
             Err(_) => {
-	        error!("Password Verification Failed with {}", &*existing_user.password);
+            error!("Password Verification Failed with {}", &*existing_user.password);
                 return Err(AppError::InternalServerError);
             }
         };
@@ -266,39 +295,3 @@ pub async fn protected(claims: Claims) -> Result<String, AppError> {
     ))
 }
 
-
-/*
-pub async fn fetch_and_store_apod_handler(store: Store) -> impl IntoResponse {
-    // Fetch the NASA API key from environment
-    let api_key = env::var("NASA_API_KEY").expect("NASA_API_KEY must be set");
-    let url = format!("https://api.nasa.gov/planetary/apod?api_key={}", api_key);
-
-    // Fetch the APOD data from NASA's API
-    let response: Apod = reqwest::get(&url).await?.json().await?;
-
-    // Store the fetched data into the database
-    match store.insert_apod(&response).await {
-        Ok(id) => (
-            StatusCode::CREATED,
-            format!("APOD inserted with ID: {}", id),
-        ),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to insert APOD: {}", e),
-        ),
-    }
-}
-
-pub async fn add_apod_handler(store: Store, apod: Apod) -> impl IntoResponse {
-    match store.insert_apod(&apod).await {
-        Ok(id) => (
-            StatusCode::CREATED,
-            format!("APOD inserted with ID: {}", id),
-        ),
-        Err(e) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to insert APOD: {}", e),
-        ),
-    }
-}
-*/
