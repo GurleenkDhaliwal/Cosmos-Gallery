@@ -1,7 +1,7 @@
 use argon2::Config;
 use axum::extract::{Path, Query, State};
 use axum::response::{Html, Response};
-use axum::{Form, Json};
+use axum::{Form, Json, Extension};
 use http::header::{LOCATION, SET_COOKIE};
 use http::{HeaderValue, StatusCode};
 use hyper::Body;
@@ -9,6 +9,7 @@ use jsonwebtoken::Header;
 use serde_json::{json, Value};
 use tera::Context;
 use tracing::error;
+use axum::response::IntoResponse;
 
 use crate::db::Store;
 use crate::error::AppError;
@@ -20,7 +21,7 @@ use crate::models::question::{
 use crate::models::user::{Claims, OptionalClaims, User, UserSignup, KEYS};
 
 use crate::template::TEMPLATES;
-//use crate::models::Apod;
+use crate::models::apod::Apod;
 use reqwest;
 use sqlx::PgPool;
 use anyhow::Result;
@@ -121,6 +122,7 @@ pub async fn register(
     // We should also check to validate other things at some point like email address being in right format
 
     if credentials.email.is_empty() || credentials.password.is_empty() {
+        error!("Password or email failed");
         return Err(AppError::MissingCredentials);
     }
 
@@ -167,10 +169,58 @@ pub async fn login(
 
     let existing_user = database.get_user(&creds.email).await?;
 
+    // Check if the passwords match directly
+    if existing_user.password != creds.password {
+        error!("Password Verification Failed for user with email {}", &creds.email);
+        return Err(AppError::InvalidPassword);
+    }
+
+    // at this point we've authenticated the user's identity
+    // create JWT to return
+    let claims = Claims {
+        id: 0,
+        email: creds.email.to_owned(),
+        exp: get_timestamp_after_8_hours(),
+    };
+
+    let token = jsonwebtoken::encode(&Header::default(), &claims, &KEYS.encoding)
+        .map_err(|_| AppError::MissingCredentials)?;
+
+    let cookie = cookie::Cookie::build("jwt", token).http_only(true).finish();
+
+    let mut response = Response::builder()
+        .status(StatusCode::FOUND)
+        .body(Body::empty())
+        .unwrap();
+
+    response
+        .headers_mut()
+        .insert(LOCATION, HeaderValue::from_static("/"));
+    response.headers_mut().insert(
+        SET_COOKIE,
+        HeaderValue::from_str(&cookie.to_string()).unwrap(),
+    );
+
+    Ok(response)
+}
+
+
+/*
+pub async fn login(
+    State(mut database): State<Store>,
+    Form(creds): Form<User>,
+) -> Result<Response<Body>, AppError> {
+    if creds.email.is_empty() || creds.password.is_empty() {
+        return Err(AppError::MissingCredentials);
+    }
+
+    let existing_user = database.get_user(&creds.email).await?;
+
     let is_password_correct =
         match argon2::verify_encoded(&*existing_user.password, creds.password.as_bytes()) {
             Ok(result) => result,
             Err(_) => {
+	        error!("Password Verification Failed with {}", &*existing_user.password);
                 return Err(AppError::InternalServerError);
             }
         };
@@ -207,6 +257,7 @@ pub async fn login(
 
     Ok(response)
 }
+*/
 
 pub async fn protected(claims: Claims) -> Result<String, AppError> {
     Ok(format!(
@@ -215,14 +266,39 @@ pub async fn protected(claims: Claims) -> Result<String, AppError> {
     ))
 }
 
+
 /*
-pub async fn fetch_and_store_apod(pool: &PgPool) -> Result<()> {
-    let api_key = "O96l3ECnx8bZGN4eGvpEd8cgexq7lP8qtTvt8Q7m";
+pub async fn fetch_and_store_apod_handler(store: Store) -> impl IntoResponse {
+    // Fetch the NASA API key from environment
+    let api_key = env::var("NASA_API_KEY").expect("NASA_API_KEY must be set");
     let url = format!("https://api.nasa.gov/planetary/apod?api_key={}", api_key);
 
+    // Fetch the APOD data from NASA's API
     let response: Apod = reqwest::get(&url).await?.json().await?;
 
-    Apod::create(response, pool).await?;
+    // Store the fetched data into the database
+    match store.insert_apod(&response).await {
+        Ok(id) => (
+            StatusCode::CREATED,
+            format!("APOD inserted with ID: {}", id),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to insert APOD: {}", e),
+        ),
+    }
+}
 
-    Ok(())
-}*/
+pub async fn add_apod_handler(store: Store, apod: Apod) -> impl IntoResponse {
+    match store.insert_apod(&apod).await {
+        Ok(id) => (
+            StatusCode::CREATED,
+            format!("APOD inserted with ID: {}", id),
+        ),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to insert APOD: {}", e),
+        ),
+    }
+}
+*/

@@ -27,6 +27,7 @@ pub async fn app(pool: PgPool) -> Router {
         .route("/users", post(handlers::register))
         .route("/login", post(handlers::login))
         .route("/protected", get(handlers::protected))
+        //.route("/apods", post(handlers::add_apod_handler))
         .route("/*_", get(handle_404))
         .merge(comment_routes())
         .layer(cors_layer)

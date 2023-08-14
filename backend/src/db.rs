@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex, RwLock};
 
 use sqlx::postgres::PgPoolOptions;
 use sqlx::{PgPool, Row};
+use sqlx::Error;
 use tracing::info;
 
 use crate::error::AppError;
@@ -14,6 +15,8 @@ use crate::models::question::{
     GetQuestionById, IntoQuestionId, Question, QuestionId, UpdateQuestion,
 };
 use crate::models::user::{User, UserSignup};
+use crate::models::apod::Apod;
+use chrono::NaiveDate;
 
 #[derive(Clone)]
 pub struct Store {
@@ -378,6 +381,8 @@ SELECT title, content, id, tags FROM questions WHERE id = $1
 
         Ok(package)
     }
+
+
 }
 
 #[cfg(test)]
