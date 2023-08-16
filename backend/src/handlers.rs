@@ -23,6 +23,7 @@ use crate::models::question::{
 use crate::models::user::{Claims, OptionalClaims, User, UserSignup, KEYS};
 
 use crate::models::apod::Apod;
+use crate::models::apod::NasaApod;
 use crate::template::TEMPLATES;
 use anyhow::Result;
 use reqwest;
@@ -39,6 +40,11 @@ pub async fn root(
     let mut context = Context::new();
     context.insert("name", "Casey");
 
+/*
+    if let Err(e) = fetch_and_store_apod(State(am_database.clone())).await {
+        error!("Error fetching and storing APOD: {:?}", e);
+     }
+*/
     let template_name = if let Some(claims_data) = claims {
         error!("Setting claims and is_logged_in is TRUE now");
         context.insert("claims", &claims_data);
@@ -164,6 +170,7 @@ pub async fn register(
     Ok(new_user)
 }
 
+/*
 pub async fn login(
     State(mut database): State<Store>,
     Form(creds): Form<User>,
@@ -211,14 +218,49 @@ pub async fn login(
     );
 
     Ok(response)
+}*/
+
+pub async fn protected(claims: Claims) -> Result<String, AppError> {
+    Ok(format!(
+        "Welcome to the PROTECTED area :) \n Your claim data is: {}",
+        claims
+    ))
 }
 
 pub async fn fetch_and_store_apod(state: State<Store>) -> Result<Json<Value>, AppError> {
     let response = reqwest::get(NASA_APOD_API).await?;
+    let nasa_apod: NasaApod = response.json().await?;
+
+    // Convert NasaApod to Apod
+    let apod = Apod {
+        date: nasa_apod.date,
+        explanation: nasa_apod.explanation,
+        hdurl: nasa_apod.hdurl,
+        media_type: nasa_apod.media_type,
+        service_version: nasa_apod.service_version,
+        title: nasa_apod.title,
+        url: nasa_apod.url,
+        id: 0, // This will be set by the database
+        upvotes: Some(0),
+        downvotes: Some(0),
+    };
+
+    // Check if APOD for this date already exists
+    if !state.0.check_apod_date(&apod.date).await? {
+        state.0.insert_apod(apod).await?;
+    }
+
+    Ok(Json(json!({"message": "APOD fetched and stored successfully!"})))
+}
+
+/*
+pub async fn fetch_and_store_apod(state: State<Store>) -> Result<Json<Value>, AppError> {
+    let response = reqwest::get(NASA_APOD_API).await?;
     let apod: Apod = response.json().await?;
 
-    // Store this `apod` in our database using a new function in db.rs
+    if !state.0.check_apod_date(&apod.date).await? {
     state.0.insert_apod(apod).await?;
+    }
 
     Ok(Json(json!({"message": "APOD fetched and stored successfully!"})))
 }
@@ -231,10 +273,9 @@ pub async fn list_apods(database: &Store) -> impl IntoResponse {
      }
     }
 }
+*/
 
 
-
-/*
 pub async fn login(
     State(mut database): State<Store>,
     Form(creds): Form<User>,
@@ -286,12 +327,7 @@ pub async fn login(
 
     Ok(response)
 }
-*/
 
-pub async fn protected(claims: Claims) -> Result<String, AppError> {
-    Ok(format!(
-        "Welcome to the PROTECTED area :) \n Your claim data is: {}",
-        claims
-    ))
-}
+
+
 

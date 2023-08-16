@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS votes;
+DROP TYPE IF EXISTS vote_choice;
+

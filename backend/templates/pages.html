@@ -8,6 +8,7 @@
 <body>
 <h1>NASA PIC OF THE DAY</h1>
 
+{% block content %}
 {% for apod in apod_packages %}
 <div class="apod">
     <h2>Date: {{ apod.date }}</h2>
@@ -15,8 +16,23 @@
     <img src="{{ apod.url }}" alt="{{ apod.title }}">
     <p>{{ apod.explanation }}</p>
     <!-- Add Upvote and Downvote buttons here if needed -->
+    <div class="vote-buttons">
+        <button class="upvote" data-apod-id="{{ apod.id }}">Upvote</button>
+        <span class="vote-count">{{ apod.upvotes }}</span>
+        <button class="downvote" data-apod-id="{{ apod.id }}">Downvote</button>
+        <span class="vote-count">{{ apod.downvotes }}</span>
+    </div>
+
+
 </div>
+
+     <!-- Button to Fetch All APODs -->
+    <div class="all-apods">
+        <button id="showAllApods">Show All APODs</button>
+    </div>
+
 {% endfor %}
+{% endblock %}
 
 </body>
 </html>

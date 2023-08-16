@@ -270,30 +270,6 @@ SELECT title, content, id, tags FROM questions WHERE id = $1
         Ok(())
     }
 
-    /*
-        pub async fn create_user(&self, user: UserSignup) -> Result<Json<Value>, AppError> {
-            // TODO: Encrypt/bcrypt user passwords
-            let result = sqlx::query("INSERT INTO users(email, password) values ($1, $2)")
-                .bind(&user.email)
-                .bind(&user.password)
-                .execute(&self.conn_pool)
-                .await
-            .map_err(|e| {
-                error!("Database Error: {}", e);  // Log the error for debugging
-                AppError::InternalServerError
-             })?;
-        //      .map_err(|_| AppError::InternalServerError)?;
-
-            if result.rows_affected() < 1 {
-                Err(AppError::InternalServerError)
-            } else {
-                Ok(Json(
-                    serde_json::json!({"message": "User created successfully!"}),
-                ))
-            }
-        }
-    */
-
     pub async fn create_comment(&self, comment: Comment) -> Result<Comment, AppError> {
         let (question_id, answer_id) = match &comment.reference {
             CommentReference::Question(qid) => (Some(qid.0), None),
@@ -463,6 +439,107 @@ SELECT title, content, id, tags FROM questions WHERE id = $1
 
     Ok(apods)
 }
+
+pub async fn check_apod_date(&self, date: &NaiveDate) -> Result<bool, AppError> {
+    let result: Option<i64> = sqlx::query_scalar!(
+        r#"
+        SELECT COUNT(*)
+        FROM apods
+        WHERE date = $1
+        "#,
+        date
+    )
+    .fetch_one(&self.conn_pool)
+    .await?;
+
+    Ok(result.unwrap_or(0) > 0)
+}
+
+pub async fn upvote_apod(pool: &PgPool, user_id: i32, apod_id: i32) -> Result<(), Error> {
+    let existing_vote = sqlx::query!(
+        "SELECT vote_type FROM votes WHERE user_id = $1 AND apod_id = $2",
+        user_id,
+        apod_id
+    )
+    .fetch_optional(pool)
+    .await?;
+
+    match existing_vote {
+        Some(record) if record.vote_type == "downvote" => {
+            // Change the downvote to an upvote
+            sqlx::query!(
+                "UPDATE votes SET vote_type = 'upvote' WHERE user_id = $1 AND apod_id = $2",
+                user_id,
+                apod_id
+            )
+            .execute(pool)
+            .await?;
+        }
+        Some(record) if record.vote_type == "upvote" => {
+            // Remove the upvote
+            sqlx::query!(
+                "DELETE FROM votes WHERE user_id = $1 AND apod_id = $2",
+                user_id,
+                apod_id
+            )
+            .execute(pool)
+            .await?;
+        }
+        None => {
+            // Insert an upvote
+            sqlx::query!(
+                "INSERT INTO votes (user_id, apod_id, vote_type) VALUES ($1, $2, 'upvote')",
+                user_id,
+                apod_id
+            )
+            .execute(pool)
+            .await?;
+        }
+    }
+
+    Ok(())
+}
+
+// The same logic applies to the downvote_apod function
+
+
+
+// Similarly, update the downvote_apod function
+pub async fn downvote_apod(pool: &PgPool, user_id: i32, apod_id: i32) -> Result<(), Error> {
+    // Similar logic as above, but for downvoting
+    let existing_vote: Option<String> = sqlx::query!(
+        "SELECT vote_type FROM votes WHERE user_id = $1 AND apod_id = $2",
+        user_id,
+        apod_id
+    )
+    .fetch_one(pool)
+    .await?;
+
+    match existing_vote {
+        Some(vote) if vote == "upvote" => {
+            // If an upvote already exists, remove it
+            sqlx::query!("DELETE FROM votes WHERE user_id = $1 AND apod_id = $2", user_id, apod_id)
+                .execute(pool)
+                .await?;
+        }
+        Some(vote) if vote == "downvote" => {
+            // If a downvote already exists, do nothing
+            return Ok(());
+        }
+        _ => {
+            // Insert a downvote
+            sqlx::query!(
+                "INSERT INTO votes (user_id, apod_id, vote_type) VALUES ($1, $2, 'downvote')",
+                user_id,
+                apod_id
+            )
+            .execute(pool)
+            .await?;
+        }
+    }
+    Ok(())
+}
+
 
 }
 

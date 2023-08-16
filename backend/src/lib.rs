@@ -1,6 +1,7 @@
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use axum::extract::State;
 
 use crate::db::new_pool;
 use crate::error::AppError;
@@ -22,6 +23,7 @@ mod template;
 pub async fn run_backend() {
     dotenv().ok();
     init_logging();
+    
 
     let addr = get_host_from_env();
 

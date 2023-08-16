@@ -11,12 +11,23 @@ pub struct Apod {
     pub explanation: String,
     pub hdurl: Option<String>,
     pub media_type: String,
-    pub service_version: String,
+    pub service_version: Option<String>,
     pub title: String,
     pub url: String,
     pub id: i64,
     pub upvotes: Option<i32>,
     pub downvotes: Option<i32>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct NasaApod {
+    pub date: NaiveDate,
+    pub explanation: String,
+    pub hdurl: Option<String>,
+    pub media_type: String,
+    pub service_version: Option<String>,
+    pub title: String,
+    pub url: String,
 }
 
 pub async fn insert_apod(pool: &PgPool, apod: &Apod) -> Result<i32, Error> {
