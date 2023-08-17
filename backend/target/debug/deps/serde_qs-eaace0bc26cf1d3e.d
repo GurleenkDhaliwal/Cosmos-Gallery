@@ -1,0 +1,11 @@
+/Users/gurleendhaliwal/Desktop/Cosmos-Gallery/backend/target/debug/deps/serde_qs-eaace0bc26cf1d3e.rmeta: /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_qs-0.8.5/src/lib.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_qs-0.8.5/src/de/mod.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_qs-0.8.5/src/de/parse.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_qs-0.8.5/src/error.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_qs-0.8.5/src/ser.rs
+
+/Users/gurleendhaliwal/Desktop/Cosmos-Gallery/backend/target/debug/deps/libserde_qs-eaace0bc26cf1d3e.rlib: /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_qs-0.8.5/src/lib.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_qs-0.8.5/src/de/mod.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_qs-0.8.5/src/de/parse.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_qs-0.8.5/src/error.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_qs-0.8.5/src/ser.rs
+
+/Users/gurleendhaliwal/Desktop/Cosmos-Gallery/backend/target/debug/deps/serde_qs-eaace0bc26cf1d3e.d: /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_qs-0.8.5/src/lib.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_qs-0.8.5/src/de/mod.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_qs-0.8.5/src/de/parse.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_qs-0.8.5/src/error.rs /Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_qs-0.8.5/src/ser.rs
+
+/Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_qs-0.8.5/src/lib.rs:
+/Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_qs-0.8.5/src/de/mod.rs:
+/Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_qs-0.8.5/src/de/parse.rs:
+/Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_qs-0.8.5/src/error.rs:
+/Users/gurleendhaliwal/.cargo/registry/src/github.com-1ecc6299db9ec823/serde_qs-0.8.5/src/ser.rs:

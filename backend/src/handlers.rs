@@ -1,31 +1,32 @@
 use argon2::Config;
-use axum::extract::{Path, Query, State};
+use axum::extract::{Path, Query, State, Json};
+use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::response::{Html, Response};
-use axum::http::StatusCode;
-use axum::{Extension, Form, Json};
+use axum::{Extension, Form, headers};
 use http::header::{LOCATION, SET_COOKIE};
-use http::{HeaderValue};
+use http::HeaderValue;
 use hyper::Body;
 use jsonwebtoken::Header;
 use serde_json::{json, Value};
 use tera::Context;
-use tracing::error;
 use tera::Template;
+use tracing::error;
 
 use crate::db::Store;
 use crate::error::AppError;
 use crate::get_timestamp_after_8_hours;
 use crate::models::answer::{Answer, CreateAnswer};
+use crate::models::apod::Apod;
+use crate::models::apod::NasaApod;
 use crate::models::question::{
     CreateQuestion, GetQuestionById, Question, QuestionId, UpdateQuestion,
 };
 use crate::models::user::{Claims, OptionalClaims, User, UserSignup, KEYS};
-
-use crate::models::apod::Apod;
-use crate::models::apod::NasaApod;
 use crate::template::TEMPLATES;
 use anyhow::Result;
+use chrono::{Duration, NaiveDate};
+use jsonwebtoken::decode;
 use reqwest;
 use sqlx::PgPool;
 
@@ -40,19 +41,18 @@ pub async fn root(
     let mut context = Context::new();
     context.insert("name", "Casey");
 
-/*
     if let Err(e) = fetch_and_store_apod(State(am_database.clone())).await {
         error!("Error fetching and storing APOD: {:?}", e);
-     }
-*/
+    }
+
     let template_name = if let Some(claims_data) = claims {
         error!("Setting claims and is_logged_in is TRUE now");
         context.insert("claims", &claims_data);
         context.insert("is_logged_in", &true);
         // Get all the page data
-     
+
         let apod_packages = am_database.fetch_apods().await?;
-	context.insert("apod_packages", &apod_packages);
+        context.insert("apod_packages", &apod_packages);
 
         "pages.html" // Use the new template when logged in
     } else {
@@ -170,56 +170,6 @@ pub async fn register(
     Ok(new_user)
 }
 
-/*
-pub async fn login(
-    State(mut database): State<Store>,
-    Form(creds): Form<User>,
-) -> Result<Response<Body>, AppError> {
-    if creds.email.is_empty() || creds.password.is_empty() {
-        return Err(AppError::MissingCredentials);
-    }
-
-    let existing_user = database.get_user(&creds.email).await?;
-
-    // Check if the passwords match directly
-    if existing_user.password != creds.password {
-        error!(
-            "Password Verification Failed for user with email {}",
-            &creds.email
-        );
-        return Err(AppError::InvalidPassword);
-    }
- 
-
-    // at this point we've authenticated the user's identity
-    // create JWT to return
-    let claims = Claims {
-        id: 0,
-        email: creds.email.to_owned(),
-        exp: get_timestamp_after_8_hours(),
-    };
-
-    let token = jsonwebtoken::encode(&Header::default(), &claims, &KEYS.encoding)
-        .map_err(|_| AppError::MissingCredentials)?;
-
-    let cookie = cookie::Cookie::build("jwt", token).http_only(true).finish();
-
-    let mut response = Response::builder()
-        .status(StatusCode::FOUND)
-        .body(Body::empty())
-        .unwrap();
-
-    response
-        .headers_mut()
-        .insert(LOCATION, HeaderValue::from_static("/fetch_store_apod"));
-    response.headers_mut().insert(
-        SET_COOKIE,
-        HeaderValue::from_str(&cookie.to_string()).unwrap(),
-    );
-
-    Ok(response)
-}*/
-
 pub async fn protected(claims: Claims) -> Result<String, AppError> {
     Ok(format!(
         "Welcome to the PROTECTED area :) \n Your claim data is: {}",
@@ -250,31 +200,10 @@ pub async fn fetch_and_store_apod(state: State<Store>) -> Result<Json<Value>, Ap
         state.0.insert_apod(apod).await?;
     }
 
-    Ok(Json(json!({"message": "APOD fetched and stored successfully!"})))
+    Ok(Json(
+        json!({"message": "APOD fetched and stored successfully!"}),
+    ))
 }
-
-/*
-pub async fn fetch_and_store_apod(state: State<Store>) -> Result<Json<Value>, AppError> {
-    let response = reqwest::get(NASA_APOD_API).await?;
-    let apod: Apod = response.json().await?;
-
-    if !state.0.check_apod_date(&apod.date).await? {
-    state.0.insert_apod(apod).await?;
-    }
-
-    Ok(Json(json!({"message": "APOD fetched and stored successfully!"})))
-}
-
-pub async fn list_apods(database: &Store) -> impl IntoResponse {
-    match database.list_apods().await {
-    Ok(apods) => Ok(Json(apods)),
-    Err(_) => {
-    return Err(AppError::Any(anyhow::anyhow!("APOD's NOT Found")));
-     }
-    }
-}
-*/
-
 
 pub async fn login(
     State(mut database): State<Store>,
@@ -290,7 +219,10 @@ pub async fn login(
         match argon2::verify_encoded(&*existing_user.password, creds.password.as_bytes()) {
             Ok(result) => result,
             Err(_) => {
-            error!("Password Verification Failed with {}", &*existing_user.password);
+                error!(
+                    "Password Verification Failed with {}",
+                    &*existing_user.password
+                );
                 return Err(AppError::InternalServerError);
             }
         };
@@ -328,6 +260,36 @@ pub async fn login(
     Ok(response)
 }
 
+pub async fn upvote(
+    apod_id: Path<i32>,
+    state: State<Store>,
+    token: HeaderValue,
+) -> Result<Json<Value>, AppError> {
+    let user_id = state.get_user_id_from_token(&token.to_str().unwrap_or_default()).await?;
+    state.upvote_apod(user_id, *apod_id).await?;
+    Ok(Json(json!({"message": "Upvoted successfully"})))
+}
+
+pub async fn downvote(
+    apod_id: Path<i32>,
+    state: State<Store>,
+    token: HeaderValue,
+) -> Result<Json<Value>, AppError> {
+    let user_id = state.get_user_id_from_token(&token.to_str().unwrap_or_default()).await?;
+    state.downvote_apod(user_id, *apod_id).await?;
+    Ok(Json(json!({"message": "Downvoted successfully"})))
+}
 
 
+pub async fn list_all_apods(state: State<Store>) -> Result<Html<String>, AppError> {
+    let apods = state.list_apods().await?;
+    let mut context = Context::new();
+    context.insert("apod_packages", &apods);
+    let rendered = state.tera.render("apod_list.html", &context)
+        .map_err(|e| {
+            error!("Template Rendering Error: {}", e);
+            AppError::InternalServerError
+        })?;
+    Ok(Html(rendered))
+}
 

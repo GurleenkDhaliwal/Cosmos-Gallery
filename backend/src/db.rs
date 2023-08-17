@@ -2,11 +2,14 @@ use axum::Json;
 use serde_json::Value;
 use std::sync::{Arc, Mutex, RwLock};
 
+use tera::Tera;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::Error;
 use sqlx::{PgPool, Row};
 use tracing::error;
 use tracing::info;
+use axum::http::HeaderValue;
+use std::str::FromStr;
 
 use crate::error::AppError;
 use crate::models::answer::{Answer, AnswerId};
@@ -16,14 +19,38 @@ use crate::models::page::{AnswerWithComments, PagePackage, QuestionWithComments}
 use crate::models::question::{
     GetQuestionById, IntoQuestionId, Question, QuestionId, UpdateQuestion,
 };
-use crate::models::user::{User, UserSignup};
-use chrono::NaiveDate;
+use crate::models::user::{User, UserSignup, Claims};
+use chrono::{Duration, NaiveDate};
+use strum_macros::{EnumString, ToString};
+use axum::extract::FromRequestParts;
+
+use jsonwebtoken::{decode, Validation, DecodingKey};
+use crate::models::user::KEYS;
+
+
+#[derive(Debug, PartialEq, sqlx::Type)]
+#[sqlx(type_name = "vote_choice", rename_all = "lowercase")]
+pub enum VoteChoice {
+    Upvote,
+    Downvote,
+}
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct Vote {
+    pub id: i32,
+    pub user_id: i32,
+    pub apod_id: i32,
+    pub vote_type: VoteChoice,
+    pub timestamp: chrono::NaiveDateTime,
+}
+
 
 #[derive(Clone)]
 pub struct Store {
     pub conn_pool: PgPool,
     pub questions: Arc<Mutex<Vec<Question>>>,
     pub answers: Arc<RwLock<Vec<Answer>>>,
+    pub tera: Tera,
 }
 
 pub async fn new_pool() -> PgPool {
@@ -37,10 +64,12 @@ pub async fn new_pool() -> PgPool {
 
 impl Store {
     pub fn with_pool(pool: PgPool) -> Self {
+        let tera = Tera::new("templates/**/*").unwrap();
         Self {
             conn_pool: pool,
             questions: Default::default(),
             answers: Default::default(),
+	    tera,
         }
     }
 
@@ -249,17 +278,17 @@ SELECT title, content, id, tags FROM questions WHERE id = $1
     }
 
     pub async fn insert_apod(&self, apod: Apod) -> Result<(), AppError> {
-    sqlx::query!(
-        "INSERT INTO apods (date, title, explanation, url, media_type, upvotes, downvotes)
+        sqlx::query!(
+            "INSERT INTO apods (date, title, explanation, url, media_type, upvotes, downvotes)
          VALUES ($1, $2, $3, $4, $5, $6, $7)",
-        apod.date,
-        apod.title,
-        apod.explanation,
-        apod.url,
-        apod.media_type,
-        apod.upvotes.unwrap_or(0),  // default to 0 if None
-        apod.downvotes.unwrap_or(0) // default to 0 if None
-    	)
+            apod.date,
+            apod.title,
+            apod.explanation,
+            apod.url,
+            apod.media_type,
+            apod.upvotes.unwrap_or(0),   // default to 0 if None
+            apod.downvotes.unwrap_or(0)  // default to 0 if None
+        )
         .execute(&self.conn_pool)
         .await
         .map_err(|e| {
@@ -411,7 +440,7 @@ SELECT title, content, id, tags FROM questions WHERE id = $1
     }
 
     pub async fn fetch_apods(&self) -> Result<Vec<Apod>, AppError> {
-    let apods: Vec<Apod> = sqlx::query_as!(
+        let apods: Vec<Apod> = sqlx::query_as!(
         Apod,
 	 "SELECT id, date, title, explanation, hdurl, media_type, service_version, url, COALESCE(upvotes, 0) as upvotes, COALESCE(downvotes, 0) as downvotes FROM apods"
     )
@@ -422,123 +451,83 @@ SELECT title, content, id, tags FROM questions WHERE id = $1
         AppError::InternalServerError
     })?;
 
-    Ok(apods)
-}
- 
+        Ok(apods)
+    }
+
     pub async fn list_apods(&self) -> Result<Vec<Apod>, AppError> {
-    let apods = sqlx::query_as!(
-        Apod,
-        "SELECT * FROM apods ORDER BY date DESC"
-    )
-    .fetch_all(&self.conn_pool)
-    .await
-    .map_err(|e| {
-        error!("Database Error: {}", e);
-        AppError::InternalServerError
-    })?;
+        let apods = sqlx::query_as!(Apod, "SELECT * FROM apods ORDER BY date DESC")
+            .fetch_all(&self.conn_pool)
+            .await
+            .map_err(|e| {
+                error!("Database Error: {}", e);
+                AppError::InternalServerError
+            })?;
 
-    Ok(apods)
-}
+        Ok(apods)
+    }
 
-pub async fn check_apod_date(&self, date: &NaiveDate) -> Result<bool, AppError> {
-    let result: Option<i64> = sqlx::query_scalar!(
-        r#"
+    pub async fn check_apod_date(&self, date: &NaiveDate) -> Result<bool, AppError> {
+        let result: Option<i64> = sqlx::query_scalar!(
+            r#"
         SELECT COUNT(*)
         FROM apods
         WHERE date = $1
         "#,
-        date
-    )
-    .fetch_one(&self.conn_pool)
-    .await?;
+            date
+        )
+        .fetch_one(&self.conn_pool)
+        .await?;
 
-    Ok(result.unwrap_or(0) > 0)
-}
-
-pub async fn upvote_apod(pool: &PgPool, user_id: i32, apod_id: i32) -> Result<(), Error> {
-    let existing_vote = sqlx::query!(
-        "SELECT vote_type FROM votes WHERE user_id = $1 AND apod_id = $2",
-        user_id,
-        apod_id
-    )
-    .fetch_optional(pool)
-    .await?;
-
-    match existing_vote {
-        Some(record) if record.vote_type == "downvote" => {
-            // Change the downvote to an upvote
-            sqlx::query!(
-                "UPDATE votes SET vote_type = 'upvote' WHERE user_id = $1 AND apod_id = $2",
-                user_id,
-                apod_id
-            )
-            .execute(pool)
-            .await?;
-        }
-        Some(record) if record.vote_type == "upvote" => {
-            // Remove the upvote
-            sqlx::query!(
-                "DELETE FROM votes WHERE user_id = $1 AND apod_id = $2",
-                user_id,
-                apod_id
-            )
-            .execute(pool)
-            .await?;
-        }
-        None => {
-            // Insert an upvote
-            sqlx::query!(
-                "INSERT INTO votes (user_id, apod_id, vote_type) VALUES ($1, $2, 'upvote')",
-                user_id,
-                apod_id
-            )
-            .execute(pool)
-            .await?;
-        }
+        Ok(result.unwrap_or(0) > 0)
     }
 
-    Ok(())
-}
+    pub async fn upvote_apod(&self, user_id: i32, apod_id: i32) -> Result<(), AppError> {
+        sqlx::query!(
+            r#"
+	INSERT INTO votes (user_id, apod_id, vote_type) VALUES ($1, $2, 'upvote')
+        ON CONFLICT (user_id, apod_id) DO UPDATE SET vote_type = 'upvote'
+        "#,
+            user_id,
+            apod_id
+        )
+        .execute(&self.conn_pool)
+        .await
+        .map_err(|e| {
+            error!("Database Error: {}", e);
+            AppError::InternalServerError
+        })?;
 
-// The same logic applies to the downvote_apod function
-
-
-
-// Similarly, update the downvote_apod function
-pub async fn downvote_apod(pool: &PgPool, user_id: i32, apod_id: i32) -> Result<(), Error> {
-    // Similar logic as above, but for downvoting
-    let existing_vote: Option<String> = sqlx::query!(
-        "SELECT vote_type FROM votes WHERE user_id = $1 AND apod_id = $2",
-        user_id,
-        apod_id
-    )
-    .fetch_one(pool)
-    .await?;
-
-    match existing_vote {
-        Some(vote) if vote == "upvote" => {
-            // If an upvote already exists, remove it
-            sqlx::query!("DELETE FROM votes WHERE user_id = $1 AND apod_id = $2", user_id, apod_id)
-                .execute(pool)
-                .await?;
-        }
-        Some(vote) if vote == "downvote" => {
-            // If a downvote already exists, do nothing
-            return Ok(());
-        }
-        _ => {
-            // Insert a downvote
-            sqlx::query!(
-                "INSERT INTO votes (user_id, apod_id, vote_type) VALUES ($1, $2, 'downvote')",
-                user_id,
-                apod_id
-            )
-            .execute(pool)
-            .await?;
-        }
+        Ok(())
     }
-    Ok(())
-}
+
+    pub async fn downvote_apod(&self, user_id: i32, apod_id: i32) -> Result<(), AppError> {
+        sqlx::query!(
+            r#"
+        INSERT INTO votes (user_id, apod_id, vote_type) VALUES ($1, $2, 'downvote')
+        ON CONFLICT (user_id, apod_id) DO UPDATE SET vote_type = 'downvote'
+        "#,
+            user_id,
+            apod_id
+        )
+        .execute(&self.conn_pool)
+        .await
+        .map_err(|e| {
+            error!("Database Error: {}", e);
+            AppError::InternalServerError
+        })?;
+
+        Ok(())
+     }
+
+    pub async fn get_user_id_from_token(&self, token: &str) -> Result<i32, AppError> {
+    let token_data = decode::<Claims>(
+        &token, 
+        &KEYS.decoding,
+        &Validation::default()
+    ).map_err(|_| AppError::InvalidToken)?;
+
+    Ok(token_data.claims.id)
+    }
 
 
 }

@@ -49,4 +49,3 @@ pub async fn insert_apod(pool: &PgPool, apod: &Apod) -> Result<i32, Error> {
     .await
     .map(|record| record.id)
 }
-

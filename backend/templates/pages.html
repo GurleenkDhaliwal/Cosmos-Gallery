@@ -9,7 +9,8 @@
 <h1>NASA PIC OF THE DAY</h1>
 
 {% block content %}
-{% for apod in apod_packages %}
+{% if apod_packages %}
+{% set apod = apod_packages[0] %}
 <div class="apod">
     <h2>Date: {{ apod.date }}</h2>
     <h3>{{ apod.title }}</h3>
@@ -28,10 +29,10 @@
 
      <!-- Button to Fetch All APODs -->
     <div class="all-apods">
-        <button id="showAllApods">Show All APODs</button>
+        <button onclick="location.href='/apod_list';">Show All APODs</button>
     </div>
 
-{% endfor %}
+{% endif %}
 {% endblock %}
 
 </body>
