@@ -2,14 +2,11 @@ use axum::Json;
 use serde_json::Value;
 use std::sync::{Arc, Mutex, RwLock};
 
-use tera::Tera;
 use sqlx::postgres::PgPoolOptions;
-use sqlx::Error;
 use sqlx::{PgPool, Row};
+use tera::Tera;
 use tracing::error;
 use tracing::info;
-use axum::http::HeaderValue;
-use std::str::FromStr;
 
 use crate::error::AppError;
 use crate::models::answer::{Answer, AnswerId};
@@ -19,14 +16,11 @@ use crate::models::page::{AnswerWithComments, PagePackage, QuestionWithComments}
 use crate::models::question::{
     GetQuestionById, IntoQuestionId, Question, QuestionId, UpdateQuestion,
 };
-use crate::models::user::{User, UserSignup, Claims};
-use chrono::{Duration, NaiveDate};
-use strum_macros::{EnumString, ToString};
-use axum::extract::FromRequestParts;
+use crate::models::user::{Claims, User, UserSignup};
+use chrono::NaiveDate;
 
-use jsonwebtoken::{decode, Validation, DecodingKey};
 use crate::models::user::KEYS;
-
+use jsonwebtoken::{decode, Validation};
 
 #[derive(Debug, PartialEq, sqlx::Type)]
 #[sqlx(type_name = "vote_choice", rename_all = "lowercase")]
@@ -43,7 +37,6 @@ pub struct Vote {
     pub vote_type: VoteChoice,
     pub timestamp: chrono::NaiveDateTime,
 }
-
 
 #[derive(Clone)]
 pub struct Store {
@@ -69,7 +62,7 @@ impl Store {
             conn_pool: pool,
             questions: Default::default(),
             answers: Default::default(),
-	    tera,
+            tera,
         }
     }
 
@@ -255,7 +248,6 @@ SELECT title, content, id, tags FROM questions WHERE id = $1
     }
 
     pub async fn create_user(&self, user: UserSignup) -> Result<Json<Value>, AppError> {
-        // TODO: Encrypt/bcrypt user passwords
         let result = sqlx::query(
             "INSERT INTO users(email, password, is_admin, is_banned) values ($1, $2, 'N', 'N')",
         )
@@ -454,6 +446,17 @@ SELECT title, content, id, tags FROM questions WHERE id = $1
         Ok(apods)
     }
 
+    pub async fn fetch_latest_apod(&self) -> Result<Apod, AppError> {
+        let apod = sqlx::query_as!(Apod, "SELECT * FROM apods ORDER BY date DESC LIMIT 1")
+            .fetch_one(&self.conn_pool)
+            .await
+            .map_err(|e| {
+                error!("Database Error: {}", e);
+                AppError::InternalServerError
+            })?;
+        Ok(apod)
+    }
+
     pub async fn list_apods(&self) -> Result<Vec<Apod>, AppError> {
         let apods = sqlx::query_as!(Apod, "SELECT * FROM apods ORDER BY date DESC")
             .fetch_all(&self.conn_pool)
@@ -517,19 +520,14 @@ SELECT title, content, id, tags FROM questions WHERE id = $1
         })?;
 
         Ok(())
-     }
-
-    pub async fn get_user_id_from_token(&self, token: &str) -> Result<i32, AppError> {
-    let token_data = decode::<Claims>(
-        &token, 
-        &KEYS.decoding,
-        &Validation::default()
-    ).map_err(|_| AppError::InvalidToken)?;
-
-    Ok(token_data.claims.id)
     }
 
+    pub async fn get_user_id_from_token(&self, token: &str) -> Result<i32, AppError> {
+        let token_data = decode::<Claims>(token, &KEYS.decoding, &Validation::default())
+            .map_err(|_| AppError::InvalidToken)?;
 
+        Ok(token_data.claims.id)
+    }
 }
 
 #[cfg(test)]

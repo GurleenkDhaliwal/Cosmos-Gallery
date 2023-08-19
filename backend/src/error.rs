@@ -72,3 +72,4 @@ impl From<reqwest::Error> for AppError {
         AppError::InternalServerError
     }
 }
+

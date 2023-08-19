@@ -1,16 +1,15 @@
 use argon2::Config;
-use axum::extract::{Path, Query, State, Json};
+use axum::extract;
+use axum::extract::{Json, Path, Query, State};
 use axum::http::StatusCode;
-use axum::response::IntoResponse;
 use axum::response::{Html, Response};
-use axum::{Extension, Form, headers};
+use axum::Form;
 use http::header::{LOCATION, SET_COOKIE};
 use http::HeaderValue;
 use hyper::Body;
 use jsonwebtoken::Header;
 use serde_json::{json, Value};
 use tera::Context;
-use tera::Template;
 use tracing::error;
 
 use crate::db::Store;
@@ -25,17 +24,14 @@ use crate::models::question::{
 use crate::models::user::{Claims, OptionalClaims, User, UserSignup, KEYS};
 use crate::template::TEMPLATES;
 use anyhow::Result;
-use chrono::{Duration, NaiveDate};
-use jsonwebtoken::decode;
 use reqwest;
-use sqlx::PgPool;
 
 const NASA_APOD_API: &str =
     "https://api.nasa.gov/planetary/apod?api_key=O96l3ECnx8bZGN4eGvpEd8cgexq7lP8qtTvt8Q7m";
 
 #[allow(dead_code)]
 pub async fn root(
-    State(mut am_database): State<Store>,
+    State(am_database): State<Store>,
     OptionalClaims(claims): OptionalClaims,
 ) -> Result<Html<String>, AppError> {
     let mut context = Context::new();
@@ -51,8 +47,8 @@ pub async fn root(
         context.insert("is_logged_in", &true);
         // Get all the page data
 
-        let apod_packages = am_database.fetch_apods().await?;
-        context.insert("apod_packages", &apod_packages);
+        let latest_apod = am_database.fetch_latest_apod().await?;
+        context.insert("apod", &latest_apod);
 
         "pages.html" // Use the new template when logged in
     } else {
@@ -127,7 +123,7 @@ pub async fn create_answer(
 }
 
 pub async fn register(
-    State(mut database): State<Store>,
+    State(database): State<Store>,
     Form(mut credentials): Form<UserSignup>,
 ) -> Result<Json<Value>, AppError> {
     // We should also check to validate other things at some point like email address being in right format
@@ -144,7 +140,7 @@ pub async fn register(
     // Check to see if there is already a user in the database with the given email address
     let existing_user = database.get_user(&credentials.email).await;
 
-    if let Ok(_) = existing_user {
+    if existing_user.is_ok() {
         return Err(AppError::UserAlreadyExists);
     }
 
@@ -206,7 +202,7 @@ pub async fn fetch_and_store_apod(state: State<Store>) -> Result<Json<Value>, Ap
 }
 
 pub async fn login(
-    State(mut database): State<Store>,
+    State(database): State<Store>,
     Form(creds): Form<User>,
 ) -> Result<Response<Body>, AppError> {
     if creds.email.is_empty() || creds.password.is_empty() {
@@ -216,7 +212,7 @@ pub async fn login(
     let existing_user = database.get_user(&creds.email).await?;
 
     let is_password_correct =
-        match argon2::verify_encoded(&*existing_user.password, creds.password.as_bytes()) {
+        match argon2::verify_encoded(&existing_user.password, creds.password.as_bytes()) {
             Ok(result) => result,
             Err(_) => {
                 error!(
@@ -260,12 +256,15 @@ pub async fn login(
     Ok(response)
 }
 
+
 pub async fn upvote(
-    apod_id: Path<i32>,
-    state: State<Store>,
+    apod_id: extract::Path<i32>,
+    state: extract::State<Store>,
     token: HeaderValue,
 ) -> Result<Json<Value>, AppError> {
-    let user_id = state.get_user_id_from_token(&token.to_str().unwrap_or_default()).await?;
+    let user_id = state
+        .get_user_id_from_token(token.to_str().unwrap_or_default())
+        .await?;
     state.upvote_apod(user_id, *apod_id).await?;
     Ok(Json(json!({"message": "Upvoted successfully"})))
 }
@@ -275,21 +274,20 @@ pub async fn downvote(
     state: State<Store>,
     token: HeaderValue,
 ) -> Result<Json<Value>, AppError> {
-    let user_id = state.get_user_id_from_token(&token.to_str().unwrap_or_default()).await?;
+    let user_id = state
+        .get_user_id_from_token(token.to_str().unwrap_or_default())
+        .await?;
     state.downvote_apod(user_id, *apod_id).await?;
     Ok(Json(json!({"message": "Downvoted successfully"})))
 }
-
 
 pub async fn list_all_apods(state: State<Store>) -> Result<Html<String>, AppError> {
     let apods = state.list_apods().await?;
     let mut context = Context::new();
     context.insert("apod_packages", &apods);
-    let rendered = state.tera.render("apod_list.html", &context)
-        .map_err(|e| {
-            error!("Template Rendering Error: {}", e);
-            AppError::InternalServerError
-        })?;
+    let rendered = state.tera.render("apod_list.html", &context).map_err(|e| {
+        error!("Template Rendering Error: {}", e);
+        AppError::InternalServerError
+    })?;
     Ok(Html(rendered))
 }
-

@@ -1,4 +1,3 @@
-use crate::AppError;
 use anyhow::Result;
 use chrono::NaiveDate;
 use serde_derive::{Deserialize, Serialize};
@@ -30,6 +29,7 @@ pub struct NasaApod {
     pub url: String,
 }
 
+#[allow(dead_code)]
 pub async fn insert_apod(pool: &PgPool, apod: &Apod) -> Result<i32, Error> {
     sqlx::query!(
         "INSERT INTO apods (date, explanation, hdurl, media_type, service_version, title, url, upvotes, downvotes)

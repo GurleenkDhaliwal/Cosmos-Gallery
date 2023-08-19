@@ -9,8 +9,7 @@
 <h1>NASA PIC OF THE DAY</h1>
 
 {% block content %}
-{% if apod_packages %}
-{% set apod = apod_packages[0] %}
+{% if apod %}
 <div class="apod">
     <h2>Date: {{ apod.date }}</h2>
     <h3>{{ apod.title }}</h3>
@@ -23,17 +22,16 @@
         <button class="downvote" data-apod-id="{{ apod.id }}">Downvote</button>
         <span class="vote-count">{{ apod.downvotes }}</span>
     </div>
-
-
 </div>
 
-     <!-- Button to Fetch All APODs -->
-    <div class="all-apods">
-        <button onclick="location.href='/apod_list';">Show All APODs</button>
-    </div>
+<!-- Button to Fetch All APODs -->
+<div class="all-apods">
+    <button onclick="location.href='/apod_list';">Show All APODs</button>
+</div>
 
 {% endif %}
 {% endblock %}
 
 </body>
 </html>
+
